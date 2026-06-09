@@ -120,6 +120,8 @@ terraform apply / aws s3 sync
 ```
 
 ---
+<img width="1913" height="868" alt="Ekran görüntüsü 2026-06-09 173657" src="https://github.com/user-attachments/assets/3f21e2dc-cbf2-4d41-ad2d-965cf54820ad" />
+<img width="1910" height="858" alt="Ekran görüntüsü 2026-06-09 173641" src="https://github.com/user-attachments/assets/7596a860-2ca2-402f-8ab6-6c564d6e9806" />
 
 ## Features
 
