@@ -9,7 +9,7 @@ terraform {
 
   # DEĞIŞTIR: ACCOUNT_ID → Gerçek hesap ID'niz (bootstrap ile oluşturulan bucket)
   backend "s3" {
-    bucket         = "smart-ecommerce-tfstate-ACCOUNT_ID"
+    bucket         = "smart-ecommerce-tfstate-290971954748"
     key            = "security/terraform.tfstate"
     region         = "eu-central-1"
     dynamodb_table = "smart-ecommerce-tfstate-lock"
