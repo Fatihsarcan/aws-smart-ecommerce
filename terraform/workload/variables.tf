@@ -8,7 +8,7 @@ variable "github_repo" {
 
 variable "ses_from_email" {
   description = "SES verified sender email"
-  default     = "zfatihed@mail.com"
+  default     = "zfatihed@gmail.com"
 }
 
 locals {
