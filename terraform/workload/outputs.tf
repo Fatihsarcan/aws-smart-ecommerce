@@ -21,7 +21,3 @@ output "frontend_bucket_name" {
 output "cloudfront_distribution_id" {
   value = aws_cloudfront_distribution.frontend.id
 }
-
-output "personalize_dataset_group_arn" {
-  value = aws_personalize_dataset_group.main.arn
-}
