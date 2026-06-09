@@ -1,0 +1,77 @@
+name: Frontend Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: "eu-central-1"
+
+jobs:
+  deploy:
+    name: Build & Deploy to S3
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/GitHubActionsManagementRole
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get Terraform outputs
+        working-directory: terraform/workload
+        run: |
+          terraform init -reconfigure -backend-config="bucket=smart-ecommerce-tfstate-${{ vars.AWS_ACCOUNT_ID }}"
+          echo "REACT_APP_API_URL=$(terraform output -raw api_gateway_url)" >> $GITHUB_ENV
+          echo "REACT_APP_USER_POOL_ID=$(terraform output -raw cognito_user_pool_id)" >> $GITHUB_ENV
+          echo "REACT_APP_USER_POOL_CLIENT_ID=$(terraform output -raw cognito_client_id)" >> $GITHUB_ENV
+          echo "FRONTEND_BUCKET=$(terraform output -raw frontend_bucket_name)" >> $GITHUB_ENV
+          echo "CF_DIST_ID=$(terraform output -raw cloudfront_distribution_id)" >> $GITHUB_ENV
+        env:
+          TF_VERSION: "1.6.6"
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.6.6"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+        env:
+          REACT_APP_API_URL: ${{ env.REACT_APP_API_URL }}
+          REACT_APP_USER_POOL_ID: ${{ env.REACT_APP_USER_POOL_ID }}
+          REACT_APP_USER_POOL_CLIENT_ID: ${{ env.REACT_APP_USER_POOL_CLIENT_ID }}
+
+      - name: Deploy to S3
+        working-directory: frontend
+        run: |
+          aws s3 sync build/ s3://${{ env.FRONTEND_BUCKET }} --delete \
+            --cache-control "public,max-age=31536000,immutable" \
+            --exclude "index.html"
+
+          aws s3 cp build/index.html s3://${{ env.FRONTEND_BUCKET }}/index.html \
+            --cache-control "no-cache,no-store,must-revalidate"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ env.CF_DIST_ID }} \
+            --paths "/*"

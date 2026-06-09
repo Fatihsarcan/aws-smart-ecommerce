@@ -1,0 +1,27 @@
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
+*.zip
+
+# Node
+node_modules/
+npm-debug.log*
+dist/
+build/
+
+# React
+frontend/build/
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+
+# Misc
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
