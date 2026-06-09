@@ -1,5 +1,5 @@
 variable "region" {
-  default = "eu-central-1"
+  default = "eu-central-1" # Frankfurt
 }
 
 variable "github_repo" {
