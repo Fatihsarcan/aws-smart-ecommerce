@@ -6,23 +6,72 @@ A fully serverless e-commerce platform built on AWS, managed entirely with Terra
 
 ## Architecture Overview
 
-```
-User → CloudFront → S3 (React Frontend)
-                         ↓
-              API Gateway (HTTP API)
-                         ↓
-         ┌───────────────┼───────────────┐
-         ↓               ↓               ↓
-   Lambda (Products) Lambda (Orders) Lambda (Recommendations)
-         ↓               ↓               ↓
-      DynamoDB        DynamoDB        DynamoDB
-      (products)      (orders)        (users)
-                         ↓
-                      SQS Queue
-                         ↓
-                  Lambda (cognito-trigger)
-                         ↓
-                    SES (order email)
+```mermaid
+graph TB
+    User(["👤 User"])
+
+    subgraph Frontend ["Frontend"]
+        CF["CloudFront CDN\n(OAC)"]
+        S3F["S3 Static Hosting\nReact App"]
+    end
+
+    subgraph Auth ["Authentication"]
+        Cognito["Amazon Cognito\nUser Pool"]
+    end
+
+    subgraph API ["API Layer"]
+        APIGW["API Gateway\nHTTP API v2"]
+    end
+
+    subgraph Compute ["Lambda Functions — Node.js 18.x"]
+        LProducts["λ products"]
+        LOrders["λ orders"]
+        LRec["λ recommendations"]
+        LCognito["λ cognito-trigger"]
+    end
+
+    subgraph Data ["Database — DynamoDB (PAY_PER_REQUEST)"]
+        DBProducts["products table"]
+        DBOrders["orders table"]
+        DBUsers["users table"]
+    end
+
+    subgraph Messaging ["Messaging & Email"]
+        SQS["Amazon SQS\nOrder Queue"]
+        SES["Amazon SES\nOrder Email"]
+    end
+
+    subgraph Security ["Security & Observability"]
+        GD["GuardDuty\nThreat Detection"]
+        SH["Security Hub\nCIS Benchmark"]
+        CT["CloudTrail\nAudit Logs"]
+        CW["CloudWatch Logs\n14-day retention"]
+    end
+
+    subgraph CICD ["CI/CD — GitHub Actions"]
+        GH["GitHub push\nto master"]
+        OIDC["OIDC Federation\n(no stored keys)"]
+        TF["Terraform Apply\n+ S3 Sync"]
+    end
+
+    User -->|"HTTPS"| CF
+    CF --> S3F
+    S3F -->|"API calls"| APIGW
+    User -->|"login/register"| Cognito
+    Cognito -->|"post-confirmation"| LCognito
+    APIGW --> LProducts
+    APIGW --> LOrders
+    APIGW --> LRec
+    LProducts --> DBProducts
+    LOrders --> DBOrders
+    LOrders -->|"async"| SQS
+    LRec --> DBUsers
+    SQS --> LCognito
+    LCognito -->|"confirmation email"| SES
+
+    GH -->|"OIDC token"| OIDC
+    OIDC -->|"AssumeRoleWithWebIdentity"| TF
+    TF -->|"deploy"| APIGW
 ```
 
 ---
@@ -107,19 +156,28 @@ lambda/           # Node.js Lambda function source code
 
 Authentication uses **OIDC federation** — no AWS access keys stored in GitHub. GitHub Actions assumes an IAM role directly via a short-lived token.
 
-```
-Push to master
-    ↓
-GitHub Actions
-    ↓ (OIDC token)
-AWS STS → AssumeRoleWithWebIdentity
-    ↓
-GitHubActionsManagementRole (IAM)
-    ↓
-terraform apply / aws s3 sync
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant GH as GitHub Actions
+    participant STS as AWS STS
+    participant IAM as IAM Role
+    participant TF as Terraform
+    participant S3 as S3 / CloudFront
+
+    Dev->>GH: git push to master
+    GH->>STS: OIDC token request
+    STS-->>GH: short-lived credentials
+    GH->>IAM: AssumeRoleWithWebIdentity
+    IAM-->>GH: temporary credentials
+    GH->>TF: terraform apply
+    TF-->>GH: infrastructure updated
+    GH->>S3: aws s3 sync (frontend)
+    S3-->>GH: deploy complete
 ```
 
 ---
+
 <img width="1913" height="868" alt="Ekran görüntüsü 2026-06-09 173657" src="https://github.com/user-attachments/assets/3f21e2dc-cbf2-4d41-ad2d-965cf54820ad" />
 <img width="1910" height="858" alt="Ekran görüntüsü 2026-06-09 173641" src="https://github.com/user-attachments/assets/7596a860-2ca2-402f-8ab6-6c564d6e9806" />
 
